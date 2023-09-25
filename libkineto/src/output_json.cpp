@@ -21,7 +21,6 @@
 
 #include "Logger.h"
 
-#include <iostream>
 
 namespace KINETO_NAMESPACE {
 

@@ -171,7 +171,6 @@ void CuptiActivityProfiler::transferCpuTrace(
 
 void CuptiActivityProfiler::transferSingleMetaActivity(
   std::unique_ptr<GenericTraceActivity> activity) {
-    std::cout << "[CuptiActivityProfiler::transferSingleMetaActivity]" << " Goes here, sic!" << std::endl;
     std::lock_guard<std::mutex> guard(mutex_);
   traceBuffers_->meta.push_back(std::move(activity));
 }
@@ -215,16 +214,12 @@ void CuptiActivityProfiler::logCudaVersions() {
 
 void CuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
   LOG(INFO) << "Processing " << traceBuffers_->cpu.size() << " CPU buffers";
-  std::cout << "[CuptiActivityProfiler::processTraceInternal]" << std::endl;
   VLOG(0) << "Profile time range: " << captureWindowStartTime_ << " - "
           << captureWindowEndTime_;
   logger.handleTraceStart(metadata_);
   for (auto& cpu_trace : traceBuffers_->cpu) {
     string trace_name = cpu_trace->span.name;
     VLOG(0) << "Processing CPU buffer for " << trace_name << " ("
-            << cpu_trace->span.iteration << ") - "
-            << cpu_trace->activities.size() << " records";
-    std::cout << "[CuptiActivityProfiler::processTraceInternal]" << "Processing CPU buffer for " << trace_name << " ("
             << cpu_trace->span.iteration << ") - "
             << cpu_trace->activities.size() << " records";
     VLOG(0) << "Span time range: " << cpu_trace->span.startTime << " - "
@@ -235,8 +230,6 @@ void CuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
 
   LOG(INFO) << "Processing " << traceBuffers_->meta.size() << " Meta info activities";
   for (auto& meta_activity : traceBuffers_->meta) {
-    std::cout << "Found meta_activity with id: " << meta_activity->correlationId() << std::endl;
-    activityMap_[meta_activity->correlationId()] = meta_activity.get();
     correlatedUserActivities_[meta_activity->correlationId()] = meta_activity.get();
   }
 
@@ -312,7 +305,6 @@ void CuptiActivityProfiler::processCpuTrace(
   TraceSpan& cpu_span = span_pair.first;
   for (auto const& act : cpuTrace.activities) {
     VLOG(2) << act->correlationId() << ": OP " << act->activityName;
-    std::cout << "[CuptiActivityProfiler::processCpuTrace] Id: " <<  act->correlationId() << " name: " << act->activityName << std::endl;
     if (derivedConfig_->profileActivityTypes().count(act->type())) {
       static_assert(
           std::is_same<
@@ -333,7 +325,6 @@ void CuptiActivityProfiler::processCpuTrace(
 #ifdef HAS_CUPTI
 inline void CuptiActivityProfiler::handleCorrelationActivity(
     const CUpti_ActivityExternalCorrelation* correlation) {
-      std::cout << "[CuptiActivityProfiler::handleCorrelationActivity] Handle!" << std::endl;
   if (correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0) {
     cpuCorrelationMap_[correlation->correlationId] = correlation->externalId;
   } else if (
@@ -342,7 +333,6 @@ inline void CuptiActivityProfiler::handleCorrelationActivity(
     // correlatedUserActivities_[correlation->externalId] =
   } else if (correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM2) {
     metaCorrelationMap_[correlation->correlationId] = correlation->externalId;
-    std::cout << "[CuptiActivityProfiler::handleCorrelationActivity] Handle meta correlation activity." << std::endl;
   } else {
     LOG(WARNING)
         << "Invalid CUpti_ActivityExternalCorrelation sent to handleCuptiActivity";
@@ -622,20 +612,6 @@ void CuptiActivityProfiler::checkTimestampOrder(const ITraceActivity* act1) {
 inline void CuptiActivityProfiler::handleGpuActivity(
     const ITraceActivity& act,
     ActivityLogger* logger) {
-    const auto& userActivityPtr = metaCorrelationMap_.find(act.correlationId());
-    if (userActivityPtr != metaCorrelationMap_.end()) {
-      std::cout << "[handleGpuActivity] Found user activity with id: " << userActivityPtr->second << std::endl;
-      std::cout << "[handleGpuActivity] Bind externalCorrelation to activity: " << act.correlationId() << std::endl;
-
-
-      // const auto& userActivity = *userActivityPtr->second;
-      // std::cout << "userActivity::name - " << userActivity.name() << std::endl;
-      // std::cout << "userActivity::correlationId - " << userActivity.correlationId() << std::endl;
-      // std::cout << "userActivity::type - " << static_cast<int>(userActivity.type()) << std::endl;
-    } else {
-      std::cout << "[handleGpuActivity] User activity not found:(" << std::endl;
-    }
-
   if (outOfRange(act)) {
     return;
   }
@@ -679,16 +655,8 @@ inline void CuptiActivityProfiler::handleGpuActivity(
     ActivityLogger* logger) {
   const ITraceActivity* linked =
       linkedActivity(act->correlationId, activityMap_, cpuCorrelationMap_);
-
-
   const ITraceActivity* linkedMetaActivity =
     linkedActivity(act->correlationId, correlatedUserActivities_, metaCorrelationMap_);
-    if (linkedMetaActivity != nullptr) {
-      std::cout << "[CuptiActivityProfiler::handleGpuActivity<T>] Found user activity." << std::endl;
-    } else {
-      std::cout << "[CuptiActivityProfiler::handleGpuActivity<T>] Not found user activity:(" << std::endl;
-    }
-
   const auto& gpu_activity =
       traceBuffers_->addActivityWrapper(GpuActivity<T>(act, linked, linkedMetaActivity));
   handleGpuActivity(gpu_activity, logger);
@@ -712,13 +680,6 @@ void CuptiActivityProfiler::handleCuptiActivity(
     ActivityLogger* logger) {
   switch (record->kind) {
     case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
-      {
-        std::cout << "Activity kind: " << "CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION" << std::endl;
-        const auto* ext = reinterpret_cast<const CUpti_ActivityExternalCorrelation*>(record);
-        std::cout << "ExternalKind: " << ext->externalKind << std::endl;
-        std::cout << "ExternalId: " << ext->externalId << std::endl;
-        std::cout << "Linked kernel corrId: " << ext->correlationId << std::endl;
-      }
       handleCorrelationActivity(
           reinterpret_cast<const CUpti_ActivityExternalCorrelation*>(record));
       break;
