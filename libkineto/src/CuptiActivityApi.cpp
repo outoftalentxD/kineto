@@ -61,7 +61,10 @@ CuptiActivityApi& CuptiActivityApi::singleton() {
 void CuptiActivityApi::pushCorrelationID(int id, CorrelationFlowType type) {
 #ifdef HAS_CUPTI
   if (!singleton().externalCorrelationEnabled_) {
+    std::cout << "[CuptiActivityApi::pushCorrelationID] externalCorrelationDisabled_" << std::endl;
     return;
+  } else {
+      std::cout << "[CuptiActivityApi::pushCorrelationID] externalCorrelationEnabled_" << std::endl;
   }
   VLOG(2) << "pushCorrelationID(" << id << ")";
   switch(type) {
@@ -72,6 +75,10 @@ void CuptiActivityApi::pushCorrelationID(int id, CorrelationFlowType type) {
     case User:
       CUPTI_CALL(cuptiActivityPushExternalCorrelationId(
         CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, id));
+    case Meta:
+      std::cout << "[CUPTI_CALL(cuptiActivityPushExternalCorrelationId())], id: " << id << std::endl;
+      CUPTI_CALL(cuptiActivityPushExternalCorrelationId(
+        CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM2, id));
   }
 #endif
 }
@@ -89,6 +96,10 @@ void CuptiActivityApi::popCorrelationID(CorrelationFlowType type) {
     case User:
       CUPTI_CALL(cuptiActivityPopExternalCorrelationId(
         CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, nullptr));
+    case Meta:
+    std::cout << "[CUPTI_CALL(cuptiActivityPopExternalCorrelationId())]" << std::endl;
+      CUPTI_CALL(cuptiActivityPopExternalCorrelationId(
+        CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM2, nullptr));
   }
 #endif
 }

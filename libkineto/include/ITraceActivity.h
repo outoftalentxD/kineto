@@ -41,6 +41,7 @@ struct ITraceActivity {
   virtual const std::string name() const = 0;
   // Optional linked activity
   virtual const ITraceActivity* linkedActivity() const = 0;
+  virtual const ITraceActivity* linkedUserActivity() const = 0;
   // Optional containing trace object
   virtual const TraceSpan* traceSpan() const = 0;
   // Log activity

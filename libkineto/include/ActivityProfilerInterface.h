@@ -80,6 +80,13 @@ class ActivityProfilerInterface {
   virtual void pushUserCorrelationId(uint64_t){}
   virtual void popUserCorrelationId(){}
 
+  // Correlation ids for user defined meta info.
+  virtual void pushMetaCorrelationId(uint64_t){}
+  virtual void popMetaCorrelationId(){}
+  virtual void transferSingleMetaActivity(
+    [[maybe_unused]] std::unique_ptr<GenericTraceActivity> activity
+  ) {}
+
   // Saves information for the current thread to be used in profiler output
   // Client must record any new kernel thread where the activity has occured.
   virtual void recordThreadInfo() {}
