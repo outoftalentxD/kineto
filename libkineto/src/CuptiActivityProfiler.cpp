@@ -169,6 +169,12 @@ void CuptiActivityProfiler::transferCpuTrace(
   traceBuffers_->cpu.push_back(std::move(cpuTrace));
 }
 
+void CuptiActivityProfiler::transferSingleMetaActivity(
+  std::unique_ptr<GenericTraceActivity> activity) {
+    std::lock_guard<std::mutex> guard(mutex_);
+  traceBuffers_->meta.push_back(std::move(activity));
+}
+
 #ifdef HAS_ROCTRACER
 CuptiActivityProfiler::CuptiActivityProfiler(
     RoctracerActivityApi& cupti,
@@ -220,6 +226,11 @@ void CuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
             << cpu_trace->span.endTime;
     processCpuTrace(*cpu_trace, logger);
     LOGGER_OBSERVER_ADD_EVENT_COUNT(cpu_trace->activities.size());
+  }
+
+  LOG(INFO) << "Processing " << traceBuffers_->meta.size() << " Meta info activities";
+  for (auto& meta_activity : traceBuffers_->meta) {
+    correlatedUserActivities_[meta_activity->correlationId()] = meta_activity.get();
   }
 
 #ifdef HAS_CUPTI
@@ -319,6 +330,9 @@ inline void CuptiActivityProfiler::handleCorrelationActivity(
   } else if (
       correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1) {
     userCorrelationMap_[correlation->correlationId] = correlation->externalId;
+    // correlatedUserActivities_[correlation->externalId] =
+  } else if (correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM2) {
+    metaCorrelationMap_[correlation->correlationId] = correlation->externalId;
   } else {
     LOG(WARNING)
         << "Invalid CUpti_ActivityExternalCorrelation sent to handleCuptiActivity";
@@ -424,7 +438,7 @@ void CuptiActivityProfiler::handleRuntimeActivity(
     tid = it->second.id;
   }
   const ITraceActivity* linked =
-      linkedActivity(activity->correlationId, cpuCorrelationMap_);
+      linkedActivity(activity->correlationId, activityMap_, cpuCorrelationMap_);
   const auto& runtime_activity =
       traceBuffers_->addActivityWrapper(RuntimeActivity(activity, linked, tid));
   checkTimestampOrder(&runtime_activity);
@@ -450,7 +464,7 @@ void CuptiActivityProfiler::handleDriverActivity(
     tid = it->second.id;
   }
   const ITraceActivity* linked =
-      linkedActivity(activity->correlationId, cpuCorrelationMap_);
+      linkedActivity(activity->correlationId, activityMap_, cpuCorrelationMap_);
   const auto& runtime_activity =
       traceBuffers_->addActivityWrapper(DriverActivity(activity, linked, tid));
   checkTimestampOrder(&runtime_activity);
@@ -534,7 +548,7 @@ void CuptiActivityProfiler::handleCudaSyncActivity(
   }
 
   const ITraceActivity* linked =
-      linkedActivity(activity->correlationId, cpuCorrelationMap_);
+      linkedActivity(activity->correlationId, activityMap_, cpuCorrelationMap_);
   int32_t src_stream = getStreamForWaitEvent(
       activity->contextId, activity->cudaEventId);
   const auto& cuda_sync_activity = traceBuffers_->addActivityWrapper(
@@ -623,11 +637,12 @@ inline void CuptiActivityProfiler::handleGpuActivity(
 
 const ITraceActivity* CuptiActivityProfiler::linkedActivity(
     int32_t correlationId,
+    const std::unordered_map<int64_t, const ITraceActivity*> activityMap,
     const std::unordered_map<int64_t, int64_t>& correlationMap) {
   const auto& it = correlationMap.find(correlationId);
   if (it != correlationMap.end()) {
-    const auto& it2 = activityMap_.find(it->second);
-    if (it2 != activityMap_.end()) {
+    const auto& it2 = activityMap.find(it->second);
+    if (it2 != activityMap.end()) {
       return it2->second;
     }
   }
@@ -639,9 +654,11 @@ inline void CuptiActivityProfiler::handleGpuActivity(
     const T* act,
     ActivityLogger* logger) {
   const ITraceActivity* linked =
-      linkedActivity(act->correlationId, cpuCorrelationMap_);
+      linkedActivity(act->correlationId, activityMap_, cpuCorrelationMap_);
+  const ITraceActivity* linkedMetaActivity =
+    linkedActivity(act->correlationId, correlatedUserActivities_, metaCorrelationMap_);
   const auto& gpu_activity =
-      traceBuffers_->addActivityWrapper(GpuActivity<T>(act, linked));
+      traceBuffers_->addActivityWrapper(GpuActivity<T>(act, linked, linkedMetaActivity));
   handleGpuActivity(gpu_activity, logger);
 }
 

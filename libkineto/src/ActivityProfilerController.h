@@ -71,6 +71,11 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
     return profiler_->transferCpuTrace(std::move(cpuTrace));
   }
 
+  void transferSingleMetaActivity(
+  std::unique_ptr<GenericTraceActivity> activity) {
+    return profiler_->transferSingleMetaActivity(std::move(activity));
+  }
+
   void recordThreadInfo() {
     profiler_->recordThreadInfo();
   }
