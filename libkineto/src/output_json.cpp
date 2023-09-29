@@ -287,6 +287,14 @@ void ChromeTraceLogger::handleActivity(
   if (op.correlationId() != 0) {
     arg_values.append(fmt::format("\"External id\": {}", op.correlationId()));
   }
+
+  if (op.linkedUserActivity() != nullptr) {
+    if (!arg_values.empty()) {
+      arg_values.append(", ");
+    }
+    arg_values.append(fmt::format("\"UserProvidedMetaData\": {}", op.linkedUserActivity()->name()));
+  }
+
   const std::string op_metadata = op.metadataJson();
   if (op_metadata.find_first_not_of(" \t\n") != std::string::npos) {
     if (!arg_values.empty()) {

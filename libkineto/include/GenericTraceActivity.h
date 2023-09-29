@@ -67,6 +67,10 @@ class GenericTraceActivity : public ITraceActivity {
     return linked;
   }
 
+  const ITraceActivity* linkedUserActivity() const override {
+    return userProvidedLinkedActivity;
+  }
+
   int flowType() const override {
     return flow.type;
   }
@@ -123,6 +127,7 @@ class GenericTraceActivity : public ITraceActivity {
     uint32_t start : 1;
   } flow;
   const ITraceActivity* linked{nullptr};
+  const ITraceActivity* userProvidedLinkedActivity{nullptr};
 
  private:
   const TraceSpan* traceSpan_;
